@@ -1,8 +1,8 @@
 use Module::Build;
 
 Module::Build->new(
-   module_name => 'CAM::PDF',
-   abstract    => 'This is what the module does',
+   module_name => 'HTTP::Cookies::Chrome',
+   abstract    => 'A subclass of HTTP::Cookies to handle Chrome',
    dist_author => 'brian d foy <bdfoy@cpan.org>',
    license     => 'perl',
 
