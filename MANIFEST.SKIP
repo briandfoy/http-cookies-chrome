@@ -11,3 +11,5 @@ Makefile.old$
 HTTP-Cookies-*
 t/Cookies2.plist
 .git
+.DS_Store
+test-corpus/Cookies.save
