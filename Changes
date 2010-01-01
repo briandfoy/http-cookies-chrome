@@ -1,3 +1,7 @@
 0.99_01 - Tue Dec 29 15:47:09 2009
 	* A first implementation.
 
+0.99_02 - Fri Jan  1 13:23:45 2010
+	* Fix the pod coverage test. The interface comes from
+	HTTP::Cookies.
+
