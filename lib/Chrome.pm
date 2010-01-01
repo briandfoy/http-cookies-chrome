@@ -72,7 +72,7 @@ use vars qw( $VERSION );
 use constant TRUE  => 1;
 use constant FALSE => 0;
 
-$VERSION = '0.99_01';
+$VERSION = '0.99_02';
 
 use Data::Dumper;
 use DBI qw(:sql_types);
