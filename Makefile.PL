@@ -15,6 +15,7 @@ WriteMakefile(
 		'Test::More'  => '0',
 		'DBI'         => '0',
 		'DBD::SQLite' => '0',
+		'POSIX'       => '0',
 		},
 
 	'PM'           => {
