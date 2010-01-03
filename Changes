@@ -1,6 +1,10 @@
 0.99_01 - Tue Dec 29 15:47:09 2009
 	* A first implementation.
 
+0.99_03 - Sun Jan  3 10:58:23 2010
+	* How did I forget HTTP::Cookies as a prereq? Oh yeah,
+	I've broken my local copy of Test::Prereq.
+
 0.99_02 - Fri Jan  1 13:23:45 2010
 	* Fix the pod coverage test. The interface comes from
 	HTTP::Cookies.
