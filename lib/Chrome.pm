@@ -72,7 +72,7 @@ use vars qw( $VERSION );
 use constant TRUE  => 1;
 use constant FALSE => 0;
 
-$VERSION = '0.99_04';
+$VERSION = '0.99_05';
 
 use Data::Dumper;
 use DBI qw(:sql_types);
@@ -195,13 +195,23 @@ sub _filter_cookies
 
 sub _create_table
 	{
-	my( $self) = @_;
+	my( $self ) = @_;
 
-	eval { $self->_dbh->do( <<'SQL' );
-DROP TABLE cookies
-SQL
+	eval { 
+		# We don't care if this fails. The table might not be there
+		# because this is a new file, for instance.
+		no warnings;
+		
+		$self->_dbh->do( 
+		'DROP TABLE cookies',
+			{
+			PrintError => 0,
+			PrintWarn  => 0,
+			RaiseError => 0,
+			}
+		);
 	};
-	
+
 	$self->_dbh->do( <<'SQL' );
 CREATE TABLE cookies (
 	creation_utc    INTEGER NOT NULL UNIQUE PRIMARY KEY,
