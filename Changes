@@ -1,6 +1,11 @@
 0.99_01 - Tue Dec 29 15:47:09 2009
 	* A first implementation.
 
+0.99_05 - Tue Jan  5 17:19:19 2010
+	* More testing to see what is going to satisfy these testers
+	who don't like the warning about dropping a table that isn't
+	there.
+
 0.99_04 - Mon Jan  4 17:00:16 2010
 	* Capture a possible query failure when I try to drop a
 	table from a new file. 
