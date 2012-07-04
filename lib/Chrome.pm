@@ -108,7 +108,7 @@ sub _get_rows
 	my @rows = map { bless $_, 'HTTP::Cookies::Chrome::Record' }
 		@{ $sth->fetchall_arrayref };
 	
-	#print STDERR Dumper( \@rows );
+	$dbh->disconnect;
 	
 	\ @rows;
 	}
@@ -153,7 +153,8 @@ sub save
 	$self->_create_table;
 	$self->_prepare_insert;
 	$self->_filter_cookies;
-	
+	$dbh->disconnect;
+
 	1;
 	}
 
