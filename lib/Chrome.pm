@@ -9,6 +9,8 @@ no warnings;
 
 use POSIX;
 
+=encoding utf8
+
 =head1 NAME
 
 HTTP::Cookies::Chrome - Cookie storage and management for Google Chrome
