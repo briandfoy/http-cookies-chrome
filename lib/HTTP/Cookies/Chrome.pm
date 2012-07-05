@@ -264,7 +264,7 @@ sub _get_utc_microseconds
 	{	
 	no warnings 'uninitialized';
 	use bignum;
-	POSIX::strftime( '%s', gmtime() ) * 1_000_000 + $_[1];
+	POSIX::strftime( '%s', gmtime() ) * 1_000_000 + ($_[1]//0);
 	}
 
 BEGIN {
