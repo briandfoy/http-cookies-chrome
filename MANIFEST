@@ -1,6 +1,6 @@
 Changes
 examples/placeholder.pl
-lib/Chrome.pm
+lib/HTTP/Cookies/Chrome.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
