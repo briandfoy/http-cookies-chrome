@@ -1,6 +1,9 @@
 0.99_01 - Tue Dec 29 15:47:09 2009
 	* A first implementation.
 
+0.99_09 - Thu Jul  5 03:22:27 2012
+	* Take care of uninitialized value in _get_utc_microseconds
+
 0.99_06 - Wed Jan  6 00:30:33 2010
 	* Hey, SQLite support DROP TABLE IF EXISTS. I don't have to
 	catch any errors. :)
