@@ -283,7 +283,6 @@ my %columns = map { state $n = 0; $_, $n++ } qw(
 	last_access_utc 
 	);
 	
-sub DESTROY { return 1 }
 sub AUTOLOAD
 	{
 	my( $self ) = @_;
@@ -294,8 +293,8 @@ sub AUTOLOAD
 	
 	$self->[ $columns{$method} ];
 	}
-sub DESTROY { return 1 }
 
+sub DESTROY { return 1 }
 }
 
 1;
