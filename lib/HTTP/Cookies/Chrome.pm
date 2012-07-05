@@ -241,7 +241,7 @@ sub _insert
 	my $sth = $self->{insert_sth};
 	
 	my $creation    = $self->_get_utc_microseconds( $creation_offset++ );
-	#print STDERR "creation is [$creation]\n";
+
 	my $last_access = $self->_get_utc_microseconds;
 	my $httponly    = 0;
 
