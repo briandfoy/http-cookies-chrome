@@ -14,7 +14,7 @@ WriteMakefile(
 	'PREREQ_PM'    => { 
 		'Test::More'    => '0',
 		'DBI'           => '0',
-		'DBD::SQLite'   => '0',
+		'DBD::SQLite'   => '1.32',
 		'POSIX'         => '0',
 		'HTTP::Cookies' => '0',
 		},
