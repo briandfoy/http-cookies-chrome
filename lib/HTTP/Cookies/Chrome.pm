@@ -74,7 +74,7 @@ use vars qw( $VERSION );
 use constant TRUE  => 1;
 use constant FALSE => 0;
 
-$VERSION = '0.99_08';
+$VERSION = '0.99_09';
 
 use DBI;
 
@@ -294,6 +294,7 @@ sub AUTOLOAD
 	
 	$self->[ $columns{$method} ];
 	}
+sub DESTROY { return 1 }
 
 }
 
