@@ -82,8 +82,7 @@ use DBI;
 
 sub _dbh { $_[0]->{dbh} }
 
-sub _connect
-	{
+sub _connect {
 	my( $self, $file ) = @_;
 	my $dbh = DBI->connect( "dbi:SQLite:dbname=$file", '', '',
 		{
@@ -92,8 +91,7 @@ sub _connect
 	$_[0]->{dbh} = $dbh;
 	}
 	
-sub _get_rows
-	{
+sub _get_rows {
 	my( $self, $file ) = @_;
 	
 	my $dbh = $self->_connect( $file );
@@ -110,8 +108,7 @@ sub _get_rows
 	\ @rows;
 	}
 	
-sub load
-	{
+sub load {
     my( $self, $file ) = @_;
 
     $file ||= $self->{'file'} || return;
@@ -119,8 +116,7 @@ sub load
 # $cookie_jar->set_cookie( $version, $key, $val, $path, 
 # $domain, $port, $path_spec, $secure, $maxage, $discard, \%rest )
 
- 	foreach my $row ( @{ $self->_get_rows( $file ) } )
-    	{
+ 	foreach my $row ( @{ $self->_get_rows( $file ) } ) {
 		$self->set_cookie(
 			undef, 
 			$row->name,
@@ -139,8 +135,7 @@ sub load
     1;
 	}
 
-sub save
-	{
+sub save {
     my( $self, $new_file ) = @_;
 
     $new_file ||= $self->{'file'} || return;
@@ -155,8 +150,7 @@ sub save
 	1;
 	}
 
-sub _filter_cookies
-	{
+sub _filter_cookies {
     my( $self ) = @_;
 
     $self->scan(
@@ -170,8 +164,7 @@ sub _filter_cookies
 	
 				$expires = do {
 					unless( $expires ) { 0 }
-					else
-						{
+					else {
 						$expires * 1_000_000
 						}
 					};
@@ -193,8 +186,7 @@ sub _filter_cookies
 
 	}
 
-sub _create_table
-	{
+sub _create_table {
 	my( $self ) = @_;
 
 	$self->_dbh->do(  'DROP TABLE IF EXISTS cookies' );
@@ -214,8 +206,7 @@ CREATE TABLE cookies (
 SQL
 	}
 	
-sub _prepare_insert
-	{
+sub _prepare_insert {
 	my( $self ) = @_;
 	
 	my $sth = $self->{insert_sth} = $self->_dbh->prepare_cached( <<'SQL' );
@@ -235,8 +226,7 @@ SQL
 {
 my $creation_offset = 0;
 
-sub _insert
-	{
+sub _insert {
 	my( $self, 					
 		$domain, $key, $value, $path, $expires, $secure, ) = @_;
 		
@@ -262,8 +252,7 @@ sub _insert
 	}
 }
 
-sub _get_utc_microseconds
-	{	
+sub _get_utc_microseconds {	
 	no warnings 'uninitialized';
 	use bignum;
 	POSIX::strftime( '%s', gmtime() ) * 1_000_000 + ($_[1]//0);
@@ -285,8 +274,7 @@ my %columns = map { state $n = 0; $_, $n++ } qw(
 	last_access_utc 
 	);
 	
-sub AUTOLOAD
-	{
+sub AUTOLOAD {
 	my( $self ) = @_;
 	my $method = $AUTOLOAD;
 	$method =~ s/.*:://;
