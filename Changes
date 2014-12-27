@@ -1,6 +1,10 @@
 0.99_01 - Tue Dec 29 15:47:09 2009
 	* A first implementation.
 
+1.001 - Sat Dec 27 14:58:47 2014
+	* Make a release version (Issue #2: https://github.com/briandfoy/HTTP-Cookies-Chrome/issues/2)
+	* This still doesn't handle encrypted values
+
 0.99_09 - Thu Jul  5 03:22:27 2012
 	* Take care of uninitialized value in _get_utc_microseconds
 
