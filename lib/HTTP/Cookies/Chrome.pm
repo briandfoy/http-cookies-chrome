@@ -30,6 +30,8 @@ This package overrides the C<load()> and C<save()> methods of
 C<HTTP::Cookies> so it can work with Google Chrome cookie files,
 which are SQLite databases.
 
+NOTE: This does not handle encrypted cookies files yet (https://github.com/briandfoy/HTTP-Cookies-Chrome/issues/1).
+
 See L<HTTP::Cookies>.
 
 =head2 The Chrome cookies table
