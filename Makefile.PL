@@ -1,15 +1,16 @@
-use ExtUtils::MakeMaker 6.65;
-
 require 5.010;
+use strict;
+use warnings;
 
-eval "use Test::Manifest 1.21";
+my $github    = 'https://github.com/briandfoy/';
+my $main_file = 'lib/HTTP/Cookies/Chrome.pm';
 
-WriteMakefile(
-	'NAME'	       => 'HTTP::Cookies::Chrome',
-	'ABSTRACT'     => 'A subclass of HTTP::Cookies to handle Chrome',
-	'VERSION_FROM' => 'lib/HTTP/Cookies/Chrome.pm',
-	'LICENSE'      => 'perl',
-	'AUTHOR'       => 'brian d foy <bdfoy@cpan.org>',
+my %WriteMakefile = (
+	'NAME'	        => 'HTTP::Cookies::Chrome',
+	'ABSTRACT_FROM' => $main_file,
+	'VERSION_FROM'  => $main_file,
+	'LICENSE'       => 'perl',
+	'AUTHOR'        => 'brian d foy <bdfoy@cpan.org>',
 	
 	'PREREQ_PM'    => { 
 		'DBI'           => '0',
@@ -39,3 +40,23 @@ WriteMakefile(
 	clean  => { FILES    => q|HTTP-Cookies-Chrome-*| },
 
 	);
+
+sub arguments { \%WriteMakefile }
+
+do_it() unless caller;
+sub do_it {
+	require File::Spec;
+	my $MM ='ExtUtils::MakeMaker';
+	my $MM_version =
+		eval{ "$MM " . $WriteMakefile{'CONFIGURE_REQUIRES'}{'ExtUtils::MakeMaker'} }
+			//
+		"$MM 6.64";
+	eval "use $MM_version";
+	eval "use Test::Manifest 1.21" 
+		if -e File::Spec->catfile( qw(t test_manifest) );
+	WriteMakefile( %WriteMakefile );
+	}
+
+
+no warnings;
+__PACKAGE__;
