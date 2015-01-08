@@ -1,10 +1,12 @@
 require 5.010;
+
+package HTTP::Cookies::Chrome;
 use strict;
 use warnings;
 
 use File::Spec::Functions qw(catfile);
 
-my $module    = 'HTTP::Cookies::Chrome';
+my $module    = __PACKAGE__;
 my $github    = 'https://github.com/briandfoy/HTTP-Cookies-Chrome';
 my $main_file = catfile( 'lib', split /::/, "$module.pm" );
 
@@ -16,7 +18,8 @@ my %WriteMakefile = (
 	'AUTHOR'        => 'brian d foy <bdfoy@cpan.org>',
 
 	'CONFIGURE_REQUIRES' => {
-		'ExtUtils::MakeMaker' => '6.64',
+		'ExtUtils::MakeMaker'   => '6.64',
+		'File::Spec::Functions' => '0',
 		},
 
 	'BUILD_REQUIRES' => {
