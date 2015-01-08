@@ -2,25 +2,35 @@ require 5.010;
 use strict;
 use warnings;
 
-my $github    = 'https://github.com/briandfoy/';
-my $main_file = 'lib/HTTP/Cookies/Chrome.pm';
+use File::Spec::Functions qw(catfile);
+
+my $module    = 'HTTP::Cookies::Chrome';
+my $github    = 'https://github.com/briandfoy/HTTP-Cookies-Chrome';
+my $main_file = catfile( 'lib', split /::/, "$module.pm" );
 
 my %WriteMakefile = (
-	'NAME'	        => 'HTTP::Cookies::Chrome',
+	'NAME'	        => $module,
 	'ABSTRACT_FROM' => $main_file,
 	'VERSION_FROM'  => $main_file,
 	'LICENSE'       => 'perl',
 	'AUTHOR'        => 'brian d foy <bdfoy@cpan.org>',
-	
-	'PREREQ_PM'    => { 
+
+	'CONFIGURE_REQUIRES' => {
+		'ExtUtils::MakeMaker' => '6.64',
+		},
+
+	'BUILD_REQUIRES' => {
+		},
+
+	'TEST_REQUIRES' => {
+		'Test::More' => '0.94',
+		},
+
+	'PREREQ_PM'     => {
 		'DBI'           => '0',
 		'DBD::SQLite'   => '1.32',
 		'POSIX'         => '0',
 		'HTTP::Cookies' => '0',
-		},
-
-	'TEST_REQUIRES' => {
-		'Test::More'  => '0.95',
 		},
 
 	'META_MERGE' => {
@@ -28,17 +38,17 @@ my %WriteMakefile = (
 		resources => {
 			repository => {
 				type => 'git',
-				url  => 'https://github.com/briandfoy/HTTP-Cookies-Chrome.git',
-				web  => 'https://github.com/briandfoy/HTTP-Cookies-Chrome',
+				url  => "$github.git",
+				web  => $github,
 				},
-			bugtracker => {
-				web  => 'https://github.com/briandfoy/HTTP-Cookies-Chrome/issues',
+			bugtraker => {
+				web    => "$github/issues",
 				},
+			homepage => $github,
 			},
 		},
 
 	clean  => { FILES    => q|HTTP-Cookies-Chrome-*| },
-
 	);
 
 sub arguments { \%WriteMakefile }
