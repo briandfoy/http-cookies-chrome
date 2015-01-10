@@ -51,7 +51,7 @@ my %WriteMakefile = (
 			},
 		},
 
-	clean  => { FILES    => q|HTTP-Cookies-Chrome-*| },
+	clean => { FILES => "$dist-*" },
 	);
 
 sub arguments { \%WriteMakefile }
