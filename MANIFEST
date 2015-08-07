@@ -1,6 +1,7 @@
 .releaserc
 Changes
 examples/placeholder.pl
+INSTALL.SKIP
 lib/HTTP/Cookies/Chrome.pm
 LICENSE
 Makefile.PL
