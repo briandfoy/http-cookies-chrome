@@ -63,3 +63,4 @@ HTTP-Cookies-*
 t/Cookies2\.plist
 test-corpus/Cookies\.save
 \.travis\.yml
+\.releaserc
