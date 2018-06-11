@@ -50,7 +50,7 @@ See L<HTTP::Cookies>.
 
 This module is in Github:
 
-	http://github.com/briandfoy/HTTP-Cookies-Chrome
+	https://github.com/briandfoy/http-cookies-chrome
 
 =head1 AUTHOR
 
