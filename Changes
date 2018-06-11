@@ -1,5 +1,8 @@
 Revision history for Perl module HTTP::Cookies::Chrome
 
+1.002 2018-06-11T13:11:26Z
+	* Change to Artistic License 2.0
+
 1.001 - 2014-12-27
 	* Make a release version (Issue #2: https://github.com/briandfoy/HTTP-Cookies-Chrome/issues/2)
 	* This still doesn't handle encrypted values
