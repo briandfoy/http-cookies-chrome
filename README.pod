@@ -32,17 +32,9 @@ name instead of the file location:
 
 	% perldoc HTTP::Cookies::Chrome
 
-You can read the documentation and inspect the meta data on one of the 
-CPAN web interfaces, such as L<CPAN Search|http://search.cpan.org/dist/HTTP-Cookies-Chrome> or 
-L<MetaCPAN|http://www.metacpan.org/module/HTTP::Cookies::Chrome>:
+You can read the documentation and inspect the meta data on
+L<MetaCPAN|https://www.metacpan.org/module/HTTP::Cookies::Chrome>.
 
-=over 4
-
-=item *	L<http://search.cpan.org/dist/HTTP-Cookies-Chrome>
-
-=item *	L<http://www.metacpan.org/module/HTTP::Cookies::Chrome>
-
-=back
 
 The standard module documentation has example uses in the SYNOPSIS
 section, but you can also look in the I<examples/> directory (if it's
