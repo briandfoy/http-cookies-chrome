@@ -15,23 +15,13 @@ perl:
     - "5.22"
     - "5.24"
     - "5.26"
-
-env:
-    - OLD_DEVEL_COVER=0
-
-matrix:
-    include:
-        - perl: 5.8
-          env: OLD_DEVEL_COVER=1
-
 before_install:
     - git clone git://github.com/travis-perl/helpers ~/travis-perl-helpers
     - source ~/travis-perl-helpers/init --auto
 
 install:
     - cpanm --quiet --installdeps --notest .
-    - if [ "$OLD_DEVEL_COVER" = "0" ]; then cpanm --quiet --notest Devel::Cover; fi
-    - if [ "$OLD_DEVEL_COVER" = "1" ]; then cpanm --quiet --notest Devel::Cover@1.23; fi
+    - cpanm --quiet --notest Devel::Cover
     - cpanm --quiet --notest Devel::Cover::Report::Coveralls
 
 script:
