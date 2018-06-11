@@ -82,7 +82,7 @@ tracker|https://github.com/briandfoy/http-cookies-chrome/issues>:
 
 =over 4
 
-=item *	l<https://github.com/briandfoy/http-cookies-chrome/issues>
+=item *	L<https://github.com/briandfoy/http-cookies-chrome/issues>
 
 =back
 
