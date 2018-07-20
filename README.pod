@@ -10,7 +10,7 @@
 
 =for HTML <a href="https://github.com/briandfoy/http-cookies-chrome/blob/master/LICENSE"><img src="https://img.shields.io/cpan/l/HTTP-Cookies-Chrome.svg" /></a>
 
-=for HTML <a href="http://www.metacpan.org/module/HTTP::Cookies::Chrome"><img src="https://img.shields.io/cpan/v/HTTP-Cookies-Chrome.svg" /></A>
+=for HTML <a href="https://metacpan.org/pod/HTTP::Cookies::Chrome"><img src="https://img.shields.io/cpan/v/HTTP-Cookies-Chrome.svg" /></A>
 
 =head1 The HTTP::Cookies::Chrome module
 
@@ -23,7 +23,7 @@ for any Perl module.
 
 To read about L<HTTP::Cookies::Chrome>, look at the embedded documentation
 in the module itself. Inside the distribution, you can format it
-with L<perldoc|http://perldoc.perl.org/perldoc.html>:
+with L<perldoc|https://perldoc.perl.orgperldoc.html>:
 
 	% perldoc lib/HTTP/Cookies/Chrome.pm
 
@@ -33,7 +33,7 @@ name instead of the file location:
 	% perldoc HTTP::Cookies::Chrome
 
 You can read the documentation and inspect the meta data on
-L<MetaCPAN|https://www.metacpan.org/module/HTTP::Cookies::Chrome>.
+L<MetaCPAN|https://metacpan.org/pod/HTTP::Cookies::Chrome>.
 
 
 The standard module documentation has example uses in the SYNOPSIS
