@@ -68,3 +68,5 @@ test-corpus/Cookies\.save
 \bMANIFEST\s\d
 \bChanges\s\d
 
+\b.github\b
+
