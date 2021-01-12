@@ -65,3 +65,6 @@ test-corpus/Cookies\.save
 \.travis\.yml
 \.releaserc
 \.?appveyor\.yml
+\bMANIFEST\s\d
+\bChanges\s\d
+
