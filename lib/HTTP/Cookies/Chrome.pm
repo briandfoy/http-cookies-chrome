@@ -42,9 +42,17 @@ See L<HTTP::Cookies>.
 	value           TEXT NOT NULL
 	path            TEXT NOT NULL
 	expires_utc     INTEGER NOT NULL
-	secure          INTEGER NOT NULL
-	httponly        INTEGER NOT NULL
+	is_secure       INTEGER NOT NULL
+	is_httponly     INTEGER NOT NULL
 	last_access_utc INTEGER NOT NULL
+	has_expires     INTEGER NOT NULL
+	is_persistent   INTEGER NOT NULL
+	priority        INTEGER NOT NULL
+	encrypted_value BLOB
+	samesite        INTEGER NOT NULL
+	source_scheme   INTEGER NOT NULL
+	source_port     INTEGER NOT NULL
+	is_same_party   INTEGER NOT NULL
 
 =head1 SOURCE AVAILABILITY
 
@@ -76,7 +84,7 @@ use vars qw( $VERSION );
 use constant TRUE  => 1;
 use constant FALSE => 0;
 
-$VERSION = '1.002';
+$VERSION = '2.001';
 
 use DBI;
 
@@ -109,30 +117,33 @@ sub _get_rows {
 	}
 
 sub load {
-    my( $self, $file ) = @_;
+	my( $self, $file ) = @_;
 
-    $file ||= $self->{'file'} || return;
+	$file ||= $self->{'file'} || return;
 
 # $cookie_jar->set_cookie( $version, $key, $val, $path,
 # $domain, $port, $path_spec, $secure, $maxage, $discard, \%rest )
 
- 	foreach my $row ( @{ $self->_get_rows( $file ) } ) {
+	foreach my $row ( @{ $self->_get_rows( $file ) } ) {
+
+		my $value = length $row->value ? $row->value : $row->decrypted_value;
+
 		$self->set_cookie(
 			undef,
 			$row->name,
-			$row->value,
+			$value,
 			$row->path,
 			$row->host_key,
 			undef,
 			undef,
-			$row->secure,
+			$row->is_secure,
 			($row->expires_utc / 1_000_000) - gmtime,
 			0,
 			{}
 			);
-    	}
+		}
 
-    1;
+	1;
 	}
 
 sub save {
@@ -192,17 +203,26 @@ sub _create_table {
 	$self->_dbh->do(  'DROP TABLE IF EXISTS cookies' );
 
 	$self->_dbh->do( <<'SQL' );
-CREATE TABLE cookies (
-	creation_utc    INTEGER NOT NULL UNIQUE PRIMARY KEY,
+CREATE TABLE cookies(
+	creation_utc    INTEGER NOT NULL,
 	host_key        TEXT NOT NULL,
 	name            TEXT NOT NULL,
 	value           TEXT NOT NULL,
 	path            TEXT NOT NULL,
 	expires_utc     INTEGER NOT NULL,
-	secure          INTEGER NOT NULL,
-	httponly        INTEGER NOT NULL,
-	last_access_utc INTEGER NOT NULL
-)
+	is_secure       INTEGER NOT NULL,
+	is_httponly     INTEGER NOT NULL,
+	last_access_utc INTEGER NOT NULL,
+	has_expires     INTEGER NOT NULL DEFAULT 1,
+	is_persistent   INTEGER NOT NULL DEFAULT 1,
+	priority        INTEGER NOT NULL DEFAULT 1,
+	encrypted_value BLOB DEFAULT '',
+	samesite        INTEGER NOT NULL DEFAULT -1,
+	source_scheme   INTEGER NOT NULL DEFAULT 0,
+	source_port     INTEGER NOT NULL DEFAULT -1,
+	is_same_party   INTEGER NOT NULL DEFAULT 0,
+	UNIQUE (host_key, name, path)
+	)
 SQL
 	}
 
@@ -269,9 +289,17 @@ my %columns = map { state $n = 0; $_, $n++ } qw(
 	value
 	path
 	expires_utc
-	secure
-	httponly
+	is_secure
+	is_httponly
 	last_access_utc
+	has_expires
+	is_persistent
+	priority
+	encrypted_value
+	samesite
+	source_scheme
+	source_port
+	is_same_party
 	);
 
 sub AUTOLOAD {
@@ -279,12 +307,66 @@ sub AUTOLOAD {
 	my $method = $AUTOLOAD;
 	$method =~ s/.*:://;
 
-	die "" unless exists $columns{$method};
+	die "No method <$method>" unless exists $columns{$method};
 
 	$self->[ $columns{$method} ];
 	}
 
-sub DESTROY { return 1 }
+sub DESTROY { 1 }
+
+# https://n8henrie.com/2014/05/decrypt-chrome-cookies-with-python/
+# https://github.com/n8henrie/pycookiecheat/issues/12
+sub platform_settings {
+	state $settings = {
+		darwin => {
+			iterations => 1003,
+			password   => do {
+				my $p = $ENV{CHROME_SAFE_STORAGE_PASS} // `security find-generic-password -a "Chrome" -w`;
+				chomp $p;
+				$p;
+				},
+			},
+		# https://github.com/n8henrie/pycookiecheat/issues/12
+		linux => {
+			iterations => 1,
+			password   => $ENV{CHROME_SAFE_STORAGE_PASS},
+			},
+		windows => {
+			password   => $ENV{CHROME_SAFE_STORAGE_PASS},
+			},
+		};
+	my $profile = $ENV{CHROME_PROFILE} // 'Default';
+
+	$settings->{darwin}{path}  = "$ENV{HOME}/Library/Application Support/Google/Chrome/$profile/Cookies";
+	$settings->{linux}{path}   = "$ENV{HOME}/.config/chromium/$profile/Cookies";
+	$settings->{windows}{path} = "C:\\Users\\<username>\\AppData\\Local\\Google\\Chrome\\User Data\\$profile\\Cookies";
+	$settings->{darwin};
+	}
+
+sub decrypted_value {
+	state $rc1 = require Crypt::Rijndael;
+	state $rc2 = require PBKDF2::Tiny;
+	state $key = do {
+		my $s = platform_settings();
+		say Dumper( $s ); use Data::Dumper;
+		my $salt = 'saltysalt';
+		my $length = 16;
+		PBKDF2::Tiny::derive( 'SHA-1', $s->{password}, $salt, $s->{iterations}, $length );
+		};
+	state $cipher = do {
+		my $c = Crypt::Rijndael->new( $key, Crypt::Rijndael::MODE_CBC() );
+		$c->set_iv( ' ' x 16 );
+		$c;
+		};
+
+	say "Length of value is " . length( $_[0]->encrypted_value );
+
+	my $plaintext = $cipher->decrypt( substr $_[0]->encrypted_value, 3 );
+	my $padding_count = ord( substr $plaintext, -1 );
+	printf "Padding is %o\n", $padding_count;
+	substr( $plaintext, -$padding_count ) = '';
+	$plaintext;
+	}
 }
 
 1;
