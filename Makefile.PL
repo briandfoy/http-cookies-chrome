@@ -65,10 +65,12 @@ my %WriteMakefile = (
 		},
 
 	'PREREQ_PM'     => {
-		'DBI'           => '0',
-		'DBD::SQLite'   => '1.32',
-		'POSIX'         => '0',
-		'HTTP::Cookies' => '0',
+		'Crypt::Rijndael' => '0',
+		'DBD::SQLite'     => '1.32',
+		'DBI'             => '0',
+		'HTTP::Cookies'   => '0',
+		'PBKDF2::Tiny'    => '0',
+		'POSIX'           => '0',
 		},
 
 	'META_MERGE' => {

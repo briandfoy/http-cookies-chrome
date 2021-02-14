@@ -5,7 +5,7 @@ package HTTP::Cookies::Chrome;
 use strict;
 
 use warnings;
-no warnings;
+use warnings::register;
 
 use POSIX;
 
@@ -19,7 +19,13 @@ HTTP::Cookies::Chrome - Cookie storage and management for Google Chrome
 
 	use HTTP::Cookies::Chrome;
 
-	my $cookie_jar = HTTP::Cookies::Chrome->new;
+	my $password = HTTP::Cookies::Chrome->get_from_gnome;
+
+	my $cookie_jar = HTTP::Cookies::Chrome->new(
+		chrome_safe_storage_password => $password,
+		file     => ...,
+		autosave => ...,
+		);
 	$cookie_jar->load( $path_to_cookies );
 
 	# otherwise same as HTTP::Cookies
@@ -28,9 +34,75 @@ HTTP::Cookies::Chrome - Cookie storage and management for Google Chrome
 
 This package overrides the C<load()> and C<save()> methods of
 C<HTTP::Cookies> so it can work with Google Chrome cookie files,
-which are SQLite databases.
+which are SQLite databases. This also should work from Chrome clones,
+such as Brave.
 
-NOTE: This does not handle encrypted cookies files yet (https://github.com/briandfoy/HTTP-Cookies-Chrome/issues/1).
+First, you are allowed to create different profiles within Chrome, and
+each profile has its own set of files. The default profile is just C<Default>.
+Along with that, there are various clones with their own product names.
+The expected paths incorporate the product and profiles:
+
+Starting with Chrome 80, cookie values may be (likely are) encrypted
+with a password that Chrome changes and stores somewhere. Additionally,
+each cookie record tracks several other fields. If you are
+using an earlier Chrome, you should use an older version of this module
+(the 1.x series).
+
+=over 4
+
+=item macOS - ~/Library/Application Support/PRODUCT/Chrome/PROFILE/Cookies
+
+=item Linux - ~/.config/PRODUCT/PROFILE/Cookies
+
+=item Windows - C:\Users\USER\AppData\Local\PRODUCT\User Data\$profile\Cookies
+
+=back
+
+The F<Cookies> file is an SQLite database.
+
+=head2 Getting the Chrome Safe Storage password
+
+You can get the Chrome Safe Storage password, although you may have to
+respond to other dialogs and features of its storage mechanism:
+
+On macOS:
+
+	% security find-generic-password -a "Chrome" -w
+	% security find-generic-password -a "Brave" -w
+
+On Ubuntu using libsecret:
+
+	% secret-tool lookup xdg:schema chrome_libsecret_os_crypt_password application chrome
+	% secret-tool lookup xdg:schema chrome_libsecret_os_crypt_password application brave
+
+If you know of other methods, let me know.
+
+=head2 Environment
+
+=over 4
+
+=item * CHROME_PROFILE
+
+The basic profile is C<Default>. If you have something else, set this environment variable.
+
+=item * CHROME_SAFE_STORAGE_PASSWORD
+
+Set this to the Chrome Safe Storage Password if there's not another way
+to do it internally.
+
+On macOS, this module can retrieve this with C<security find-generic-password -a "Chrome" -w>.
+
+On Linux systems not using a keychain, the password might be C<peanut>
+or C<mock_password>. Maybe I should use L<Passwd::Keyring::Gnome>
+
+L<https://rtfm.co.ua/en/chromium-linux-keyrings-secret-service-passwords-encryption-and-store/>
+
+L<https://stackoverflow.com/questions/57646301/decrypt-chrome-cookies-from-sqlite-db-on-mac-os>
+
+L<https://superuser.com/a/969488/12972>
+
+
+=back
 
 See L<HTTP::Cookies>.
 
@@ -108,12 +180,85 @@ sub _get_rows {
 
 	$sth->execute;
 
-	my @rows = map { bless $_, 'HTTP::Cookies::Chrome::Record' }
+	my @rows =
+		map {
+			if( my $e = $_->encrypted_value ) {
+			my $p = $self->_decrypt( $e );
+				$_->decrypted_value( $self->_decrypt( $e ) );
+				}
+			$_;
+			}
+		map { HTTP::Cookies::Chrome::Record->new( $_ ) }
 		@{ $sth->fetchall_arrayref };
 
 	$dbh->disconnect;
 
-	\ @rows;
+	\@rows;
+	}
+
+sub new {
+	my( $class, %args ) = @_;
+
+	my $pass = delete $args{chrome_safe_storage_password};
+	my $self = $class->SUPER::new( %args );
+
+	return $self unless defined $pass;
+
+	my $key = do {
+		state $rc2 = require PBKDF2::Tiny;
+		my $s = _platform_settings();
+		my $salt = 'saltysalt';
+		my $length = 16;
+		PBKDF2::Tiny::derive( 'SHA-1', $pass, $salt, $s->{iterations}, $length );
+		};
+
+	state $rc1 = require Crypt::Rijndael;
+	my $cipher = Crypt::Rijndael->new( $key, Crypt::Rijndael::MODE_CBC() );
+	$cipher->set_iv( ' ' x 16 );
+
+	$self->{'X-CHROME'} = {
+		cipher => $cipher,
+		};
+
+	return $self;
+	}
+
+sub _platform_settings {
+# https://n8henrie.com/2014/05/decrypt-chrome-cookies-with-python/
+# https://github.com/n8henrie/pycookiecheat/issues/12
+	state $settings = {
+		darwin => {
+			iterations => 1003,
+			},
+		linux => {
+			iterations => 1,
+			},
+		MSWin32 => {
+			},
+		};
+
+	$settings->{$^O};
+	}
+
+sub _decrypt {
+	my( $self, $blob ) = @_;
+
+	unless( exists $self->{'X-CHROME'}{cipher} ) {
+		warnings::warn("Decrypted cookies is not set up") if warnings::enabled();
+		return;
+		}
+
+	my $type = substr $blob, 0, 3;
+	unless( $type eq 'v10' ) { # v11 is a thing, too
+		warnings::warn("Encrypted value is unexpected type <$type>") if warnings::enabled();
+		return;
+		}
+
+	my $plaintext = $self->{'X-CHROME'}{cipher}->decrypt( substr $blob, 3 );
+	my $padding_count = ord( substr $plaintext, -1 );
+	substr( $plaintext, -$padding_count ) = '' if $padding_count < 16;
+
+	$plaintext;
 	}
 
 sub load {
@@ -125,21 +270,32 @@ sub load {
 # $domain, $port, $path_spec, $secure, $maxage, $discard, \%rest )
 
 	foreach my $row ( @{ $self->_get_rows( $file ) } ) {
-
 		my $value = length $row->value ? $row->value : $row->decrypted_value;
 
 		$self->set_cookie(
-			undef,
-			$row->name,
-			$value,
-			$row->path,
-			$row->host_key,
-			undef,
-			undef,
-			$row->is_secure,
-			($row->expires_utc / 1_000_000) - gmtime,
-			0,
-			{}
+			undef,              # version
+			$row->name,         # key
+			$value,             # value
+			$row->path,         # path
+			$row->host_key,     # domain
+			$row->source_port,  # port
+			undef,              # path spec
+			$row->is_secure,    # secure
+			($row->expires_utc / 1_000_000) - time, # max_age
+			0,                  # discard
+			{
+			map { $_ => $row->$_() } qw(
+				creation_utc
+				is_httponly
+				last_access_utc
+				has_expires
+				is_persistent
+				priority
+				encrypted_value
+				samesite
+				source_scheme
+				is_same_party)
+			}
 			);
 		}
 
@@ -300,7 +456,20 @@ my %columns = map { state $n = 0; $_, $n++ } qw(
 	source_scheme
 	source_port
 	is_same_party
+	decrypted_value
 	);
+
+sub new {
+	my( $class, $array ) = @_;
+	bless $array, $class;
+	}
+
+sub decrypted_value {
+	my( $self, $value ) = @_;
+
+	return $self->[ $columns{decrypted_value} ] unless defined $value;
+	$self->[ $columns{decrypted_value} ] = $value;
+	}
 
 sub AUTOLOAD {
 	my( $self ) = @_;
@@ -313,60 +482,7 @@ sub AUTOLOAD {
 	}
 
 sub DESTROY { 1 }
-
-# https://n8henrie.com/2014/05/decrypt-chrome-cookies-with-python/
-# https://github.com/n8henrie/pycookiecheat/issues/12
-sub platform_settings {
-	state $settings = {
-		darwin => {
-			iterations => 1003,
-			password   => do {
-				my $p = $ENV{CHROME_SAFE_STORAGE_PASS} // `security find-generic-password -a "Chrome" -w`;
-				chomp $p;
-				$p;
-				},
-			},
-		# https://github.com/n8henrie/pycookiecheat/issues/12
-		linux => {
-			iterations => 1,
-			password   => $ENV{CHROME_SAFE_STORAGE_PASS},
-			},
-		windows => {
-			password   => $ENV{CHROME_SAFE_STORAGE_PASS},
-			},
-		};
-	my $profile = $ENV{CHROME_PROFILE} // 'Default';
-
-	$settings->{darwin}{path}  = "$ENV{HOME}/Library/Application Support/Google/Chrome/$profile/Cookies";
-	$settings->{linux}{path}   = "$ENV{HOME}/.config/chromium/$profile/Cookies";
-	$settings->{windows}{path} = "C:\\Users\\<username>\\AppData\\Local\\Google\\Chrome\\User Data\\$profile\\Cookies";
-	$settings->{darwin};
-	}
-
-sub decrypted_value {
-	state $rc1 = require Crypt::Rijndael;
-	state $rc2 = require PBKDF2::Tiny;
-	state $key = do {
-		my $s = platform_settings();
-		say Dumper( $s ); use Data::Dumper;
-		my $salt = 'saltysalt';
-		my $length = 16;
-		PBKDF2::Tiny::derive( 'SHA-1', $s->{password}, $salt, $s->{iterations}, $length );
-		};
-	state $cipher = do {
-		my $c = Crypt::Rijndael->new( $key, Crypt::Rijndael::MODE_CBC() );
-		$c->set_iv( ' ' x 16 );
-		$c;
-		};
-
-	say "Length of value is " . length( $_[0]->encrypted_value );
-
-	my $plaintext = $cipher->decrypt( substr $_[0]->encrypted_value, 3 );
-	my $padding_count = ord( substr $plaintext, -1 );
-	printf "Padding is %o\n", $padding_count;
-	substr( $plaintext, -$padding_count ) = '';
-	$plaintext;
-	}
 }
+
 
 1;
