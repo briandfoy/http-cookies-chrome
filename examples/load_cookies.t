@@ -12,6 +12,7 @@ my $path_to_cookies = '/Users/brian/Library/Application Support/Google/Chrome/De
 
 # macOS
 my $pass = `security find-generic-password -a "Chrome" -w`;
+chomp($pass);
 
 my $cookie_jar = HTTP::Cookies::Chrome->new(
 	chrome_safe_storage_password => $pass
