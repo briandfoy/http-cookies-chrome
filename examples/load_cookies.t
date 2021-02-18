@@ -29,11 +29,6 @@ foreach my $site ( keys $cookies->%* ) {
 		foreach my $name ( keys $names->%* ) {
 			my $value = $names->{$name}[1];
 			printf "    %-16s %s\n", $name, $value;
-			my $v = unpack 'H*', $names->{$name}[-1]{encrypted_value};
-			say "      " . $v;
-
-			my $u = $cookie_jar->_encrypt( $value );
-			say "      " . unpack 'H*', $u;
 			}
 		}
 	}
