@@ -19,4 +19,23 @@ my $cookie_jar = HTTP::Cookies::Chrome->new(
 	);
 $cookie_jar->load( $path_to_cookies );
 
-say dumper( $cookie_jar );
+my $cookies = $cookie_jar->{COOKIES};
+foreach my $site ( keys $cookies->%* ) {
+	my $sites = $cookies->{$site};
+	say $site;
+	foreach my $path ( keys $sites->%* ) {
+		my $names = $sites->{$path};
+		say "  $path";
+		foreach my $name ( keys $names->%* ) {
+			my $value = $names->{$name}[1];
+			printf "    %-16s %s\n", $name, $value;
+			my $v = unpack 'H*', $names->{$name}[-1]{encrypted_value};
+			say "      " . $v;
+
+			my $u = $cookie_jar->_encrypt( $value );
+			say "      " . unpack 'H*', $u;
+			}
+		}
+	}
+
+# say dumper( $cookie_jar );

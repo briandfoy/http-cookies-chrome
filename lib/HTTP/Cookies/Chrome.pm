@@ -200,6 +200,23 @@ sub _decrypt {
 	$plaintext;
 	}
 
+sub _encrypt {
+	my( $self, $value ) = @_;
+
+	unless( $self->_cipher ) {
+		warnings::warn("Encrypted cookies is not set up") if warnings::enabled();
+		return;
+		}
+
+	my $blocksize = 16;
+
+	my $padding_length = ($blocksize - length($value) % $blocksize);
+	my $padding = chr($padding_length) x $padding_length;
+	my $encrypted = 'v10' . $self->_cipher->encrypt( $value . $padding );
+
+	$encrypted;
+	}
+
 sub _get_rows {
 	my( $self, $file ) = @_;
 
