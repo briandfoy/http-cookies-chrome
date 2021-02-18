@@ -160,7 +160,13 @@ $VERSION = '2.001';
 
 use DBI;
 
-sub _dbh { $_[0]->{dbh} }
+
+sub _add_value {
+	my( $self, $key, $value ) = @_;
+	$self->_stash->{$key} = $value;
+	}
+
+sub _cipher { $_[0]->_get_value( 'cipher' ) }
 
 sub _connect {
 	my( $self, $file ) = @_;
@@ -169,6 +175,29 @@ sub _connect {
 		sqlite_see_if_its_a_number => 1,
 		} );
 	$_[0]->{dbh} = $dbh;
+	}
+
+sub _dbh { $_[0]->{dbh} }
+
+sub _decrypt {
+	my( $self, $blob ) = @_;
+
+	unless( $self->_cipher ) {
+		warnings::warn("Decrypted cookies is not set up") if warnings::enabled();
+		return;
+		}
+
+	my $type = substr $blob, 0, 3;
+	unless( $type eq 'v10' ) { # v11 is a thing, too
+		warnings::warn("Encrypted value is unexpected type <$type>") if warnings::enabled();
+		return;
+		}
+
+	my $plaintext = $self->_cipher->decrypt( substr $blob, 3 );
+	my $padding_count = ord( substr $plaintext, -1 );
+	substr( $plaintext, -$padding_count ) = '' if $padding_count < 16;
+
+	$plaintext;
 	}
 
 sub _get_rows {
@@ -196,31 +225,28 @@ sub _get_rows {
 	\@rows;
 	}
 
-sub new {
-	my( $class, %args ) = @_;
+sub _get_value {
+	my( $self, $key ) = @_;
+	$self->_stash->{$key}
+	}
 
-	my $pass = delete $args{chrome_safe_storage_password};
-	my $self = $class->SUPER::new( %args );
-
-	return $self unless defined $pass;
+sub _make_cipher {
+	my( $self, $password ) = @_;
 
 	my $key = do {
 		state $rc2 = require PBKDF2::Tiny;
 		my $s = _platform_settings();
 		my $salt = 'saltysalt';
 		my $length = 16;
-		PBKDF2::Tiny::derive( 'SHA-1', $pass, $salt, $s->{iterations}, $length );
+		PBKDF2::Tiny::derive( 'SHA-1', $password, $salt, $s->{iterations}, $length );
 		};
 
 	state $rc1 = require Crypt::Rijndael;
 	my $cipher = Crypt::Rijndael->new( $key, Crypt::Rijndael::MODE_CBC() );
 	$cipher->set_iv( ' ' x 16 );
 
-	$self->{'X-CHROME'} = {
-		cipher => $cipher,
-		};
-
-	return $self;
+	$self->_add_value( chrome_safe_storage_password => $password );
+	$self->_add_value( cipher => $cipher );
 	}
 
 sub _platform_settings {
@@ -240,25 +266,23 @@ sub _platform_settings {
 	$settings->{$^O};
 	}
 
-sub _decrypt {
-	my( $self, $blob ) = @_;
+sub _stash {
+	state $mod_key = 'X-CHROME';
+	state $hash = do { $_[0]->{$mod_key} = {} };
+	$hash;
+	}
 
-	unless( exists $self->{'X-CHROME'}{cipher} ) {
-		warnings::warn("Decrypted cookies is not set up") if warnings::enabled();
-		return;
-		}
+sub new {
+	my( $class, %args ) = @_;
 
-	my $type = substr $blob, 0, 3;
-	unless( $type eq 'v10' ) { # v11 is a thing, too
-		warnings::warn("Encrypted value is unexpected type <$type>") if warnings::enabled();
-		return;
-		}
+	my $pass = delete $args{chrome_safe_storage_password};
+	my $self = $class->SUPER::new( %args );
 
-	my $plaintext = $self->{'X-CHROME'}{cipher}->decrypt( substr $blob, 3 );
-	my $padding_count = ord( substr $plaintext, -1 );
-	substr( $plaintext, -$padding_count ) = '' if $padding_count < 16;
+	return $self unless defined $pass;
 
-	$plaintext;
+	$self->_make_cipher( $pass );
+
+	return $self;
 	}
 
 sub load {
