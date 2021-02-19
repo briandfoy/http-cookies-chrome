@@ -9,6 +9,16 @@ use warnings::register;
 
 use POSIX;
 
+BEGIN {
+	my @names = qw( _VERSION KEY VALUE PATH DOMAIN PORT PATH_SPEC
+		SECURE EXPIRES DISCARD REST );
+	foreach my $name ( @names ) {
+		no strict 'refs';
+		state $n = 0;
+		*{$name} = sub () { $n++ }
+		}
+	}
+
 =encoding utf8
 
 =head1 NAME
@@ -177,6 +187,35 @@ sub _connect {
 	$_[0]->{dbh} = $dbh;
 	}
 
+sub _create_table {
+	my( $self ) = @_;
+
+	$self->_dbh->do(  'DROP TABLE IF EXISTS cookies' );
+
+	$self->_dbh->do( <<'SQL' );
+CREATE TABLE cookies(
+	creation_utc    INTEGER NOT NULL,
+	host_key        TEXT NOT NULL,
+	name            TEXT NOT NULL,
+	value           TEXT NOT NULL,
+	path            TEXT NOT NULL,
+	expires_utc     INTEGER NOT NULL,
+	is_secure       INTEGER NOT NULL,
+	is_httponly     INTEGER NOT NULL,
+	last_access_utc INTEGER NOT NULL,
+	has_expires     INTEGER NOT NULL DEFAULT 1,
+	is_persistent   INTEGER NOT NULL DEFAULT 1,
+	priority        INTEGER NOT NULL DEFAULT 1,
+	encrypted_value BLOB DEFAULT '',
+	samesite        INTEGER NOT NULL DEFAULT -1,
+	source_scheme   INTEGER NOT NULL DEFAULT 0,
+	source_port     INTEGER NOT NULL DEFAULT -1,
+	is_same_party   INTEGER NOT NULL DEFAULT 0,
+	UNIQUE (host_key, name, path)
+	)
+SQL
+	}
+
 sub _dbh { $_[0]->{dbh} }
 
 sub _decrypt {
@@ -217,6 +256,31 @@ sub _encrypt {
 	$encrypted;
 	}
 
+sub _filter_cookies {
+    my( $self ) = @_;
+
+    $self->scan(
+		sub {
+			my( $version, $key, $val, $path, $domain, $port,
+				$path_spec, $secure, $expires, $discard, $rest ) = @_;
+
+			my @parts = @_;
+
+			return if $parts[DICARD] && not $self->{ignore_discard};
+
+			return if defined $parts[EXPIRES] && time > $parts[EXPIRES];
+			$parts[8] *= 1_000_000;
+
+			$parts[SECURE] = $parts[SECURE] ? TRUE : FALSE;
+
+			my $bool = $domain =~ /^\./ ? TRUE : FALSE;
+
+			$self->_insert( @parts );
+			}
+		);
+
+	}
+
 sub _get_rows {
 	my( $self, $file ) = @_;
 
@@ -245,6 +309,42 @@ sub _get_rows {
 sub _get_value {
 	my( $self, $key ) = @_;
 	$self->_stash->{$key}
+	}
+
+{
+my $creation_offset = 0;
+
+
+sub _insert {
+	my @parts = @_;
+
+	my $sth = $self->{insert_sth};
+
+	my $creation    = $self->_get_utc_microseconds( $creation_offset++ );
+
+	my $last_access = $self->_get_utc_microseconds;
+	my $httponly    = 0;
+
+	my $encrypted_value = $self->_encrypt( $value );
+
+	$sth->execute(
+		$rest->{creation_utc},
+		@parts[DOMAIN, KEY, VALUE, PATH, EXPIRES, SECURE],
+		@{ $rest }{ qw(is_httponly last_access_utc has_expires
+			is_persistent priority) },
+		$encryted_value,
+		@{ $rest }{ qw(same_site source_scheme ) },
+		$parts[PORT],
+		$rest->{is_same_party},
+		);
+
+	}
+}
+
+sub _get_utc_microseconds {
+	no warnings 'uninitialized';
+	use bignum;
+	POSIX::strftime( '%s', gmtime() ) * 1_000_000 + ($_[1]//0);
 	}
 
 sub _make_cipher {
@@ -283,10 +383,24 @@ sub _platform_settings {
 	$settings->{$^O};
 	}
 
+sub _prepare_insert {
+	my( $self ) = @_;
+
+	my $sth = $self->{insert_sth} = $self->_dbh->prepare_cached( <<'SQL' );
+INSERT INTO cookies VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+SQL
+
+	}
+
 sub _stash {
 	state $mod_key = 'X-CHROME';
 	state $hash = do { $_[0]->{$mod_key} = {} };
 	$hash;
+	}
+
+sub guess_password {
+
+
 	}
 
 sub new {
@@ -358,122 +472,6 @@ sub save {
 	1;
 	}
 
-sub _filter_cookies {
-    my( $self ) = @_;
-
-    $self->scan(
-		sub {
-			my( $version, $key, $val, $path, $domain, $port,
-				$path_spec, $secure, $expires, $discard, $rest ) = @_;
-
-				return if $discard && not $self->{ignore_discard};
-
-				return if defined $expires && time > $expires;
-
-				$expires = do {
-					unless( $expires ) { 0 }
-					else {
-						$expires * 1_000_000
-						}
-					};
-
-				$secure = $secure ? TRUE : FALSE;
-
-				my $bool = $domain =~ /^\./ ? TRUE : FALSE;
-
-				$self->_insert(
-					$domain,
-					$key,
-					$val,
-					$path,
-					$expires,
-					$secure,
-					);
-			}
-		);
-
-	}
-
-sub _create_table {
-	my( $self ) = @_;
-
-	$self->_dbh->do(  'DROP TABLE IF EXISTS cookies' );
-
-	$self->_dbh->do( <<'SQL' );
-CREATE TABLE cookies(
-	creation_utc    INTEGER NOT NULL,
-	host_key        TEXT NOT NULL,
-	name            TEXT NOT NULL,
-	value           TEXT NOT NULL,
-	path            TEXT NOT NULL,
-	expires_utc     INTEGER NOT NULL,
-	is_secure       INTEGER NOT NULL,
-	is_httponly     INTEGER NOT NULL,
-	last_access_utc INTEGER NOT NULL,
-	has_expires     INTEGER NOT NULL DEFAULT 1,
-	is_persistent   INTEGER NOT NULL DEFAULT 1,
-	priority        INTEGER NOT NULL DEFAULT 1,
-	encrypted_value BLOB DEFAULT '',
-	samesite        INTEGER NOT NULL DEFAULT -1,
-	source_scheme   INTEGER NOT NULL DEFAULT 0,
-	source_port     INTEGER NOT NULL DEFAULT -1,
-	is_same_party   INTEGER NOT NULL DEFAULT 0,
-	UNIQUE (host_key, name, path)
-	)
-SQL
-	}
-
-sub _prepare_insert {
-	my( $self ) = @_;
-
-	my $sth = $self->{insert_sth} = $self->_dbh->prepare_cached( <<'SQL' );
-INSERT INTO cookies VALUES
-	(
-	?,
-	?, ?, ?, ?,
-	?,
-	?,
-	?,
-	?
-	)
-SQL
-
-	}
-
-{
-my $creation_offset = 0;
-
-sub _insert {
-	my( $self,
-		$domain, $key, $value, $path, $expires, $secure, ) = @_;
-
-	my $sth = $self->{insert_sth};
-
-	my $creation    = $self->_get_utc_microseconds( $creation_offset++ );
-
-	my $last_access = $self->_get_utc_microseconds;
-	my $httponly    = 0;
-
-	$sth->execute(
-		$creation,      # 1
-		$domain,        # 2
-		$key,           # 3
-		$value,         # 4
-		$path,          # 5
-		$expires,       # 6
-		$secure,        # 7
-		$httponly,      # 8
-		$last_access,   # 9
-		);
-
-	}
-}
-
-sub _get_utc_microseconds {
-	no warnings 'uninitialized';
-	use bignum;
-	POSIX::strftime( '%s', gmtime() ) * 1_000_000 + ($_[1]//0);
-	}
 
 BEGIN {
 package HTTP::Cookies::Chrome::Record;
