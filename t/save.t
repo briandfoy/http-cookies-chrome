@@ -16,7 +16,6 @@ my $jar = $class->new(
 	file => $file
 	);
 isa_ok( $jar, $class );
-print STDERR dumper( $jar->{'X-CHROME'} );
 can_ok( $jar, 'save' );
 
 $jar->save( $new_file );
@@ -27,10 +26,6 @@ my $jar2 = $class->new(
 	);
 isa_ok( $jar2, $class );
 
-use Mojo::Util qw(dumper);
-
-print STDERR dumper( $jar->{'X-CHROME'} );
-print STDERR dumper( $jar2->{'X-CHROME'} );
 #is_deeply( $jar, $jar2 );
 
 
