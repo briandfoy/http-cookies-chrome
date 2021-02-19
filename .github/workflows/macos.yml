@@ -1,0 +1,52 @@
+name: macos
+
+on:
+    push:
+        branches:
+            - '*'
+        tags-ignore:
+            # I tag release pushes but those should have already been tested
+            - 'release-*'
+        paths-ignore:
+            # list all the files which are irrelevant to the tests
+            # non-code, support files, docs, etc
+            - '.appveyor.yml'
+            - '.github/**'
+            - '.gitignore'
+            - '.releaserc'
+            - 'Changes'
+            - 'LICENSE'
+            - 'README.pod'
+        pull_request:
+
+jobs:
+    perl:
+        runs-on: macOS-latest
+
+        steps:
+            - uses: actions/checkout@v2
+            - name: Platform check
+              run: uname -a
+            - name: Set up Perl
+              run: brew install perl
+            - name: Perl version check
+              run: perl -V
+            - name: Prepare cpan
+              run: |
+                openssl version
+                cpan -M https://www.cpan.org -T IO::Socket::SSL LWP::Protocol::https ExtUtils::MakeMaker
+            - name: Install dependencies
+              run: |
+                cpan -M https://www.cpan.org -T .
+            - name: Run tests
+              run: |
+                perl Makefile.PL
+                make test
+            - name: Run tests in parallel
+              run: |
+                perl Makefile.PL
+                HARNESS_OPTIONS=j10 make test
+            - name: Run distribution tests
+              run: |
+                perl Makefile.PL
+                make disttest
