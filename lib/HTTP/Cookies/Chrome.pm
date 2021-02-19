@@ -69,97 +69,7 @@ using an earlier Chrome, you should use an older version of this module
 
 =back
 
-The F<Cookies> file is an SQLite database.
-
-=head2 Getting the Chrome Safe Storage password
-
-You can get the Chrome Safe Storage password, although you may have to
-respond to other dialogs and features of its storage mechanism:
-
-On macOS:
-
-	% security find-generic-password -a "Chrome" -w
-	% security find-generic-password -a "Brave" -w
-
-On Ubuntu using libsecret:
-
-	% secret-tool lookup xdg:schema chrome_libsecret_os_crypt_password application chrome
-	% secret-tool lookup xdg:schema chrome_libsecret_os_crypt_password application brave
-
-If you know of other methods, let me know.
-
-=head2 Environment
-
-=over 4
-
-=item * CHROME_PROFILE
-
-The basic profile is C<Default>. If you have something else, set this environment variable.
-
-=item * CHROME_SAFE_STORAGE_PASSWORD
-
-Set this to the Chrome Safe Storage Password if there's not another way
-to do it internally.
-
-On macOS, this module can retrieve this with C<security find-generic-password -a "Chrome" -w>.
-
-On Linux systems not using a keychain, the password might be C<peanut>
-or C<mock_password>. Maybe I should use L<Passwd::Keyring::Gnome>
-
-L<https://rtfm.co.ua/en/chromium-linux-keyrings-secret-service-passwords-encryption-and-store/>
-
-L<https://stackoverflow.com/questions/57646301/decrypt-chrome-cookies-from-sqlite-db-on-mac-os>
-
-L<https://superuser.com/a/969488/12972>
-
-
-=back
-
-See L<HTTP::Cookies>.
-
-=head2 The Chrome cookies table
-
-	creation_utc    INTEGER NOT NULL UNIQUE PRIMARY KEY
-	host_key        TEXT NOT NULL
-	name            TEXT NOT NULL
-	value           TEXT NOT NULL
-	path            TEXT NOT NULL
-	expires_utc     INTEGER NOT NULL
-	is_secure       INTEGER NOT NULL
-	is_httponly     INTEGER NOT NULL
-	last_access_utc INTEGER NOT NULL
-	has_expires     INTEGER NOT NULL
-	is_persistent   INTEGER NOT NULL
-	priority        INTEGER NOT NULL
-	encrypted_value BLOB
-	samesite        INTEGER NOT NULL
-	source_scheme   INTEGER NOT NULL
-	source_port     INTEGER NOT NULL
-	is_same_party   INTEGER NOT NULL
-
-=head1 SOURCE AVAILABILITY
-
-This module is in Github:
-
-	https://github.com/briandfoy/http-cookies-chrome
-
-=head1 AUTHOR
-
-brian d foy, C<< <bdfoy@cpan.org> >>
-
-=head1 CREDITS
-
-Jon Orwant pointed out the problem with dates too far in the future
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright © 2009-2021, brian d foy <bdfoy@cpan.org>. All rights reserved.
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the Artistic License 2.0.
-
 =cut
-
 
 use base qw( HTTP::Cookies );
 use vars qw( $VERSION );
@@ -243,6 +153,11 @@ sub _decrypt {
 sub _encrypt {
 	my( $self, $value ) = @_;
 
+	unless( defined $value ) {
+		warnings::warn("Value is not defined! Nothing to encrypt!") if warnings::enabled();
+		return;
+		}
+
 	unless( $self->_cipher ) {
 		warnings::warn("Encrypted cookies is not set up") if warnings::enabled();
 		return;
@@ -267,12 +182,11 @@ sub _filter_cookies {
 
 			my @parts = @_;
 
-			return if $parts[DICARD] && not $self->{ignore_discard};
-
+			return if $parts[DISCARD] && not $self->{ignore_discard};
 			return if defined $parts[EXPIRES] && time > $parts[EXPIRES];
-			$parts[8] *= 1_000_000;
 
-			$parts[SECURE] = $parts[SECURE] ? TRUE : FALSE;
+			$parts[EXPIRES]  = $rest->{expires_utc};
+			$parts[SECURE]   = $parts[SECURE] ? TRUE : FALSE;
 
 			my $bool = $domain =~ /^\./ ? TRUE : FALSE;
 
@@ -315,30 +229,43 @@ sub _get_value {
 {
 my $creation_offset = 0;
 
-
 sub _insert {
-	my @parts = @_;
+	my( $self, @parts ) = @_;
 
-	my $sth = $self->{insert_sth};
+	my $rest = $parts[REST];
 
-	my $creation    = $self->_get_utc_microseconds( $creation_offset++ );
+	$rest->{httponly} //= 0;
+	$rest->{samesite} //= 0;
 
-	my $last_access = $self->_get_utc_microseconds;
-	my $httponly    = 0;
+	# possibly thinking about a feature to remove the encryption,
+	# so we'd need to re-encrypt things. Here we assume that already
+	# exists so we always re-encrypt.
+	my $encrypted_value = '';
 
-	my $encrypted_value = $self->_encrypt( $value );
+	# If we have a value and there was a previous encrypted value,
+	# encrypted the current value and blank out the value. Other
+	if( $parts[VALUE] and $rest->{encrypted_value} and $self->_cipher ) {
+		$encrypted_value = $self->_encrypt( $parts[VALUE] );
+		$parts[VALUE] = '';
+		}
 
-	$sth->execute(
+	# Some cookies don't have values. WTF?
+	$parts[VALUE] //= '';
+
+	my @values = (
 		$rest->{creation_utc},
-		@parts[DOMAIN, KEY, VALUE, PATH, EXPIRES, SECURE],
+		@parts[DOMAIN, KEY, VALUE, PATH],
+		$rest->{expires_utc},
+		$parts[SECURE],
 		@{ $rest }{ qw(is_httponly last_access_utc has_expires
 			is_persistent priority) },
-		$encryted_value,
-		@{ $rest }{ qw(same_site source_scheme ) },
+		$encrypted_value,
+		@{ $rest }{ qw(samesite source_scheme ) },
 		$parts[PORT],
 		$rest->{is_same_party},
 		);
 
+	$self->{insert_sth}->execute( @values );
 	}
 }
 
@@ -399,10 +326,66 @@ sub _stash {
 	$hash;
 	}
 
+=item * guess_password
+
+Try to retrieve the Chrome Safe Storage password by accessing the
+system secrets for the logged-in user. This returns nothing if it
+can't find it.
+
+You don't need to use this to get the password.
+
+On macOS, this looks in the Keyring using C<security>.
+
+On Linux, this uses C<secret-tool>, which you might have to install
+separately. Also, some early versions used the hard-coded password
+C<peanut>, and some others may have used C<mock_password>.
+
+I don't know how to do this on Windows. If you know, send a pull request.
+That goes for other systems too.
+
+=cut
+
 sub guess_password {
-
-
+	my $p = do {
+		   if( $^O eq 'darwin' ) { `security find-generic-password -a "Chrome" -w` }
+		elsif( $^O eq 'linux'  ) { `secret-tool lookup xdg:schema chrome_libsecret_os_crypt_password application chrome` }
+		};
+	chomp $p;
+	$p
 	}
+
+=item * guess_path( PROFILE )
+
+Try to retrieve the directory that contains the Cookies file. If you
+don't specify C<PROFILE>, it uses C<Default>.
+
+macOS: F<~/Library/Application Support/Google/Chrome/PROFILE/Cookies>
+
+Linux: F<~/.config/google-chrome/PROFILE/Cookies>
+
+=cut
+
+sub guess_path {
+	my( $self, $profile ) = @_;
+	$profile //= 'Default';
+
+	my $path_to_cookies = do {
+		   if( $^O eq 'darwin' ) { "$ENV{HOME}/Library/Application Support/Google/Chrome/$profile/Cookies" }
+		elsif( $^O eq 'linux'  ) { "$ENV{HOME}/.config/google-chrome/$profile/Cookies" }
+		};
+
+	return unless -e $path_to_cookies;
+	$path_to_cookies
+	}
+
+=item * new
+
+The extends the C<new> in L<HTTP::Cookies>, with the additional parameter
+for the decryption password.
+
+	chrome_safe_storage_password - the password
+
+=cut
 
 sub new {
 	my( $class, %args ) = @_;
@@ -417,6 +400,27 @@ sub new {
 	return $self;
 	}
 
+=item * load
+
+This overrides the C<load> from L<HTTP::Cookies>. There are a few
+differences that matter.
+
+The Cookies database for Chrome tracks many more things than L<HTTP::Cookies>
+knows about, so this shoves everything into the "rest" hash. Notably:
+
+=over 4
+
+=item * Chrome sets the port to -1 if the cookie does not specify the port.
+
+=item * The value of the cookie is either the plaintext value or the decrypted value from C<encrypted_value>.
+
+=item * If C<ignore_discard> is set, this ignores the C<$maxage> part of L<HTTP::Cookies>, but remembers the value in C<expires_utc>.
+
+=back
+
+
+=cut
+
 sub load {
 	my( $self, $file ) = @_;
 
@@ -425,10 +429,23 @@ sub load {
 # $cookie_jar->set_cookie( $version, $key, $val, $path,
 # $domain, $port, $path_spec, $secure, $maxage, $discard, \%rest )
 
-	foreach my $row ( @{ $self->_get_rows( $file ) } ) {
+	my $rows = $self->_get_rows( $file );
+
+	foreach my $row ( @$rows ) {
 		my $value = length $row->value ? $row->value : $row->decrypted_value;
 
-		$self->set_cookie(
+		# if $max_page is not defined, HTTP::Cookies will not remove
+		# the cookies. We still track the actual value in the the
+		# hash and we can put the original back in place.
+		my $max_age = do {
+			if( $self->{ignore_discard} ) { undef }
+			else { ($row->expires_utc / 1_000_000) - time }
+			};
+
+		# I've noticed that Chrome sets most ports to -1
+		my $port = $row->source_port > 0 ? $row->source_port : 80;
+
+		my $rc = $self->set_cookie(
 			undef,              # version
 			$row->name,         # key
 			$value,             # value
@@ -437,22 +454,27 @@ sub load {
 			$row->source_port,  # port
 			undef,              # path spec
 			$row->is_secure,    # secure
-			($row->expires_utc / 1_000_000) - time, # max_age
+			$max_age,           # max_age
 			0,                  # discard
 			{
 			map { $_ => $row->$_() } qw(
+				value
 				creation_utc
 				is_httponly
 				last_access_utc
+				expires_utc
 				has_expires
 				is_persistent
 				priority
 				encrypted_value
 				samesite
 				source_scheme
-				is_same_party)
+				is_same_party
+				source_port
+				)
 			}
 			);
+
 		}
 
 	1;
@@ -473,6 +495,53 @@ sub save {
 	1;
 	}
 
+=item * set_cookie
+
+Overrides the C<set_cookie> in L<HTTP::Cookies> so it can ignore
+the port check. Chrome uses C<-1> as the port if the cookie did not
+specify a port. This version of C<set_cookie> does no port check.
+
+=cut
+
+# We have to override this part because Chrome has -1 as a valid
+# port value (for "unspecified port"). Otherwise this is lifted from
+# HTTP::Cookies
+sub set_cookie
+{
+    my $self = shift;
+    my($version,
+       $key, $val, $path, $domain, $port,
+       $path_spec, $secure, $maxage, $discard, $rest) = @_;
+
+    # path and key can not be empty (key can't start with '$')
+    return $self if !defined($path) || $path !~ m,^/, ||
+	            !defined($key)  || $key  =~ m,^\$,;
+
+    # ensure legal port
+    if (0 && defined $port) {  # nerf this part
+	return $self unless $port =~ /^_?\d+(?:,\d+)*$/;
+    }
+
+    my $expires;
+    if (defined $maxage) {
+	if ($maxage <= 0) {
+	    delete $self->{COOKIES}{$domain}{$path}{$key};
+	    return $self;
+	}
+	$expires = time() + $maxage;
+    }
+    $version = 0 unless defined $version;
+
+    my @array = ($version, $val,$port,
+		 $path_spec,
+		 $secure, $expires, $discard);
+    push(@array, {%$rest}) if defined($rest) && %$rest;
+    # trim off undefined values at end
+    pop(@array) while !defined $array[-1];
+
+    $self->{COOKIES}{$domain}{$path}{$key} = \@array;
+    $self;
+}
 
 BEGIN {
 package HTTP::Cookies::Chrome::Record;
@@ -524,5 +593,99 @@ sub AUTOLOAD {
 sub DESTROY { 1 }
 }
 
+=back
+
+=head2 Getting the Chrome Safe Storage password
+
+You can get the Chrome Safe Storage password, although you may have to
+respond to other dialogs and features of its storage mechanism:
+
+On macOS:
+
+	% security find-generic-password -a "Chrome" -w
+	% security find-generic-password -a "Brave" -w
+
+On Ubuntu using libsecret:
+
+	% secret-tool lookup xdg:schema chrome_libsecret_os_crypt_password application chrome
+	% secret-tool lookup xdg:schema chrome_libsecret_os_crypt_password application brave
+
+If you know of other methods, let me know.
+
+Some useful information:
+
+=over 4
+
+=item * On Linux systems not using a keychain, the password might be C<peanut>
+or C<mock_password>. Maybe I should use L<Passwd::Keyring::Gnome>
+
+=item * L<https://rtfm.co.ua/en/chromium-linux-keyrings-secret-service-passwords-encryption-and-store/>
+
+=item * L<https://stackoverflow.com/questions/57646301/decrypt-chrome-cookies-from-sqlite-db-on-mac-os>
+
+=item * L<https://superuser.com/a/969488/12972>
+
+=back
+
+=head2 The Chrome cookies table
+
+	creation_utc    INTEGER NOT NULL UNIQUE PRIMARY KEY
+	host_key        TEXT NOT NULL
+	name            TEXT NOT NULL
+	value           TEXT NOT NULL
+	path            TEXT NOT NULL
+	expires_utc     INTEGER NOT NULL
+	is_secure       INTEGER NOT NULL
+	is_httponly     INTEGER NOT NULL
+	last_access_utc INTEGER NOT NULL
+	has_expires     INTEGER NOT NULL
+	is_persistent   INTEGER NOT NULL
+	priority        INTEGER NOT NULL
+	encrypted_value BLOB
+	samesite        INTEGER NOT NULL
+	source_scheme   INTEGER NOT NULL
+	source_port     INTEGER NOT NULL
+	is_same_party   INTEGER NOT NULL
+
+=head1 TO DO
+
+There are many ways that this module can approve.
+
+1. The L<HTTP::Cookies> module was written a long time ago. We still
+inherit from it, but it might be time to completely dump it even if
+we keep the interface.
+
+2. Some Windows people can fill in the Windows details for C<guess_password>
+and C<guess_path>.
+
+3. As in (2), systems that aren't Linux or macOS can fill in their details.
+
+4. We need a way to specify a new password to output the cookies to a
+different Chrome-like SQLite database. The easiest thing right now might be
+to make a completely new object with the new password and load cookies
+into it.
+
+=head1 SOURCE AVAILABILITY
+
+This module is in Github:
+
+	https://github.com/briandfoy/http-cookies-chrome
+
+=head1 AUTHOR
+
+brian d foy, C<< <bdfoy@cpan.org> >>
+
+=head1 CREDITS
+
+Jon Orwant pointed out the problem with dates too far in the future
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright © 2009-2021, brian d foy <bdfoy@cpan.org>. All rights reserved.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the Artistic License 2.0.
+
+=cut
 
 1;
