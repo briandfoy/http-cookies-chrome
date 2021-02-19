@@ -322,9 +322,12 @@ SQL
 
 sub _stash {
 	state $mod_key = 'X-CHROME';
-	state $hash = do { $_[0]->{$mod_key} = {} };
-	$hash;
+	$_[0]->{$mod_key} //= {};
 	}
+
+=head2 Class methods
+
+=over 4
 
 =item * guess_password
 
@@ -391,11 +394,20 @@ sub new {
 	my( $class, %args ) = @_;
 
 	my $pass = delete $args{chrome_safe_storage_password};
+	my $file = delete $args{file};
+
 	my $self = $class->SUPER::new( %args );
 
 	return $self unless defined $pass;
 
+	print STDERR "Making cipher\n";
 	$self->_make_cipher( $pass );
+	print STDERR "Made cipher\n";
+
+	if( $file ) {
+		$self->{file} = $file;
+		$self->load;
+		}
 
 	return $self;
 	}
@@ -479,6 +491,20 @@ sub load {
 
 	1;
 	}
+
+=back
+
+=head2 Instance Methods
+
+=over 4
+
+=item * save( [ FILE ] )
+
+With no argument, save the cookies to the original filename. With
+a file name argument, write the cookies to that filename. This will
+be a SQLite database.
+
+=cut
 
 sub save {
     my( $self, $new_file ) = @_;
