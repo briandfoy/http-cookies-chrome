@@ -12,10 +12,11 @@ use POSIX;
 BEGIN {
 	my @names = qw( _VERSION KEY VALUE PATH DOMAIN PORT PATH_SPEC
 		SECURE EXPIRES DISCARD REST );
+	my $n = 0;
 	foreach my $name ( @names ) {
 		no strict 'refs';
-		state $n = 0;
-		*{$name} = sub () { $n++ }
+		my $m = $n++;
+		*{$name} = sub () { $m }
 		}
 	}
 
