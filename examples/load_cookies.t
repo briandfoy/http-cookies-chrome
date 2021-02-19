@@ -8,29 +8,27 @@ use Mojo::Util qw(dumper);
 
 use HTTP::Cookies::Chrome;
 
-my $path_to_cookies = '/Users/brian/Library/Application Support/Google/Chrome/Default/Cookies';
+my $class    = 'HTTP::Cookies::Chrome';
+my $path     = $class->guess_path;
+my $password = $class->guess_password;
 
-# macOS
-my $pass = `security find-generic-password -a "Chrome" -w`;
-chomp($pass);
+say <<~"HERE";
+	File: $path
+	Pass: $password
+	HERE
 
-my $cookie_jar = HTTP::Cookies::Chrome->new(
-	chrome_safe_storage_password => $pass
+my $cookies = HTTP::Cookies::Chrome->new(
+	chrome_safe_storage_password => $password,
+	ignore_discard => 0,
 	);
-$cookie_jar->load( $path_to_cookies );
+$cookies->load( $path );
 
-my $cookies = $cookie_jar->{COOKIES};
-foreach my $site ( keys $cookies->%* ) {
-	my $sites = $cookies->{$site};
-	say $site;
-	foreach my $path ( keys $sites->%* ) {
-		my $names = $sites->{$path};
-		say "  $path";
-		foreach my $name ( keys $names->%* ) {
-			my $value = $names->{$name}[1];
-			printf "    %-16s %s\n", $name, $value;
-			}
-		}
+$cookies->scan( \&summary );
+
+sub summary {
+	state $previous_domain = '';
+	my( @cookie ) = @_;
+	say $cookie[4] unless $cookie[4] eq $previous_domain;
+	$previous_domain = $cookie[4];
+	printf "\t%-5s %-16s %s\n", map { $_ // '' } @cookie[3,1,2];
 	}
-
-# say dumper( $cookie_jar );
