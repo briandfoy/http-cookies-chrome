@@ -400,9 +400,7 @@ sub new {
 
 	return $self unless defined $pass;
 
-	print STDERR "Making cipher\n";
 	$self->_make_cipher( $pass );
-	print STDERR "Made cipher\n";
 
 	if( $file ) {
 		$self->{file} = $file;
