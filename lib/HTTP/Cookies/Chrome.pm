@@ -201,7 +201,27 @@ sub _get_rows {
 
 	my $dbh = $self->_connect( $file );
 
-	my $sth = $dbh->prepare( 'SELECT * FROM cookies' );
+	my $sth = $dbh->prepare( <<'SQL' );
+		SELECT
+			creation_utc,
+			host_key,
+			name,
+			value,
+			path,
+			expires_utc,
+			is_secure,
+			is_httponly,
+			last_access_utc,
+			has_expires,
+			is_persistent,
+			priority,
+			encrypted_value,
+			samesite,
+			source_scheme,
+			source_port
+		FROM
+			cookies
+SQL
 
 	$sth->execute;
 
