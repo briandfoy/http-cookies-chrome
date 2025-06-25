@@ -75,7 +75,7 @@ my %WriteMakefile = (
 
 	'META_MERGE' => {
 		'meta-spec' => { version => 2 },
-		resources => {
+		'resources' => {
 			repository => {
 				type => 'git',
 				url  => $github,
@@ -85,6 +85,11 @@ my %WriteMakefile = (
 				web    => "$github/issues",
 				},
 			homepage => $github,
+			},
+		'no_index' => {
+			directory => [qw(t/lib)],
+			file      => [ qw(t/lib/TestUtils.pm) ],
+			namespace => [ qw(TestUtils) ],
 			},
 		},
 
