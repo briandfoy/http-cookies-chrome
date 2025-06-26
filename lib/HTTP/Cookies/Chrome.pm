@@ -441,10 +441,10 @@ sub _prepare_insert {
 		source_type
 		has_cross_site_ancestor
 		)];
-	state $columns = join ', ', @$columns;
+	state $columns_str = join ', ', @$columns;
 	state $placeholders = join ', ', ('?') x @$columns;
 	my $sth = $self->{insert_sth} = $self->_dbh->prepare_cached( <<"SQL" );
-INSERT INTO cookies ($columns) VALUES ( $placeholders )
+INSERT INTO cookies ($columns_str) VALUES ( $placeholders )
 SQL
 
 	}
