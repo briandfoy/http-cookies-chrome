@@ -1,5 +1,13 @@
 Revision history for Perl module HTTP::Cookies::Chrome
 
+3.001_01 2025-06-26T12:02:07Z
+	* bump major version
+	* HTTP::Cookies::Chrome v3 handles version 24 of the Chrome cookie
+	database. If you need  earlier versions, you an earlier version
+	of this module.
+	* Chrome now prepends the sha256 of the host key to the value 
+	before it encrypts it.
+
 2.005 2025-04-16T06:41:18Z
 	* require a newer version.pm for v5.10.1 tests
 
