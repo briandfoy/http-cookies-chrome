@@ -71,6 +71,10 @@ using an earlier Chrome, you should use an older version of this module
 
 =head2 Notes on modernization
 
+HTTP::Cookies::Chrome v3 works with version 24 of the Chrome cookies
+database. If you need something earlier, use an older version of this
+module.
+
 The Chrome cookie database version 24 changed how it stored encrypted
 cookies. It takes the SHA256 of the domain and prepends the binary value
 to the plaintext of the cookie value. It then encrypts the entire thing,
@@ -92,10 +96,9 @@ use vars qw( $VERSION );
 use constant TRUE  => 1;
 use constant FALSE => 0;
 
-$VERSION = '2.005';
+$VERSION = '3.001_01';
 
 use DBI;
-
 
 sub _add_value {
 	my( $self, $key, $value ) = @_;
