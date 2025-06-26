@@ -419,7 +419,7 @@ sub _platform_settings {
 
 sub _prepare_insert {
 	my( $self ) = @_;
-	state @columns = qw(
+	state $columns = [qw(
 		creation_utc
 		host_key
 		top_frame_site_key
@@ -440,9 +440,9 @@ sub _prepare_insert {
 		last_update_utc
 		source_type
 		has_cross_site_ancestor
-		);
-	state $columns = join ', ', @columns;
-	state $placeholders = join ', ', ('?') x @columns;
+		)];
+	state $columns = join ', ', @$columns;
+	state $placeholders = join ', ', ('?') x @$columns;
 	my $sth = $self->{insert_sth} = $self->_dbh->prepare_cached( <<"SQL" );
 INSERT INTO cookies ($columns) VALUES ( $placeholders )
 SQL
