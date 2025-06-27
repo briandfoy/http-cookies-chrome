@@ -17,9 +17,7 @@ t/pod.t
 t/pod_coverage.t
 t/save.t
 t/test_manifest
-test-corpus/Cookies
 test-corpus/cookies-v13.db
 test-corpus/cookies-v24.db
-test-corpus/cookies.db
 test-corpus/v24-schema.sql
 xt/changes.t
