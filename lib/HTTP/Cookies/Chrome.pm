@@ -273,7 +273,6 @@ sub _filter_cookies {
 			$self->_insert( @parts );
 			}
 		);
-
 	}
 
 sub _get_rows {
@@ -658,16 +657,15 @@ specify a port. This version of C<set_cookie> does no port check.
 # We have to override this part because Chrome has -1 as a valid
 # port value (for "unspecified port"). Otherwise this is lifted from
 # HTTP::Cookies
-sub set_cookie
-{
+sub set_cookie {
 	my $self = shift;
 	my($version,
-	   $key, $val, $path, $domain, $port,
-	   $path_spec, $secure, $maxage, $discard, $rest) = @_;
+		$key, $val, $path, $domain, $port,
+		$path_spec, $secure, $maxage, $discard, $rest) = @_;
 
 	# path and key can not be empty (key can't start with '$')
 	return $self if !defined($path) || $path !~ m,^/, ||
-	            !defined($key)  || $key  =~ m,^\$,;
+		!defined($key)  || $key  =~ m,^\$,;
 
 	# ensure legal port
 	if (0 && defined $port) {  # nerf this part
@@ -676,11 +674,11 @@ sub set_cookie
 
 	my $expires;
 	if (defined $maxage) {
-	if ($maxage <= 0) {
-	    delete $self->{COOKIES}{$domain}{$path}{$key};
-	    return $self;
-	}
-	$expires = time() + $maxage;
+		if ($maxage <= 0) {
+			delete $self->{COOKIES}{$domain}{$path}{$key};
+			return $self;
+		}
+		$expires = time() + $maxage;
 	}
 	$version = 0 unless defined $version;
 
