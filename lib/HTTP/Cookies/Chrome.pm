@@ -245,7 +245,10 @@ sub _encrypt {
 
 	my $blocksize = 16;
 
+	# padding is always added. If the length is already a multiple of 16, the
+	# padding is the same as the blocksize.
 	my $padding_length = ($blocksize - length($value) % $blocksize);
+	$padding_length = $blocksize if $padding_length == 0;
 	my $padding = chr($padding_length) x $padding_length;
 	my $encrypted = 'v10' . $self->_cipher->encrypt( $value . $padding );
 
