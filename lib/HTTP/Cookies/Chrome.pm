@@ -224,8 +224,17 @@ sub _decrypt {
 		$sha256 = substr $plaintext, 0, 32, '';
 		}
 
+	# padding is always added to get to a multiple of 16. If the value is already
+	# a multiple of 16, it's padded by an additional 16 octets.
 	my $padding_count = ord( substr $plaintext, -1 );
-	substr( $plaintext, -$padding_count ) = '' if $padding_count < 16;
+
+	my $padding = substr( $plaintext, -$padding_count );
+
+	unless( $padding =~ /\A(.){$padding_count}\z/ and ord(substr $padding, 0, 1) == $padding_count ) {
+		warnings::warn("Unexpected padding in encrypted cookie") if warnings::enabled();
+		}
+
+	substr( $plaintext, -$padding_count ) = '' if $padding_count <= 16;
 
 	( $plaintext, $sha256 );
 	}
