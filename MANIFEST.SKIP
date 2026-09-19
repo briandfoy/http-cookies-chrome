@@ -73,3 +73,6 @@ test-corpus/Cookies\.save
 util/
 
 .downstream.json
+
+.downstream.json
+cpan_tester_reports
